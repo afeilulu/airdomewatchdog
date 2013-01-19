@@ -1,0 +1,97 @@
+<?xml version="1.0" encoding="utf-8"?>
+<PreferenceScreen xmlns:android="http://schemas.android.com/apk/res/android" 
+    android:key="init_screen"
+    android:title="Setting"
+    android:summary="初始化参数">
+	
+    <PreferenceCategory
+        android:title="系统" >
+		<EditTextPreference
+		   android:key="project_id"
+		   android:title="项目标识"
+		   android:summary="区分不同项目的标识"
+	       android:dialogTitle="项目标识" 
+	       android:defaultValue="11111111"/>
+	    
+		<EditTextPreference
+	       android:key="password"
+	       android:title="项目密码"
+	       android:summary=""
+	       android:inputType="textPassword"
+	       android:dialogTitle="项目密码" 
+	       android:defaultValue="11111111"/>
+		
+		<EditTextPreference
+	       android:key="webservice_url"
+	       android:title="服务器地址"
+	       android:summary="上传服务器url"
+	       android:dialogTitle="URL" 
+	       android:defaultValue="http://pjms.chinaairdome.com/reports"/>
+		
+		<EditTextPreference
+	       android:key="interval"
+	       android:title="扫描间隔(分)"
+	       android:summary="读取modbus设备时间间隔。单位：分。"
+	       android:dialogTitle="扫描间隔" 
+	       android:defaultValue="2"/>
+	</PreferenceCategory>
+	<PreferenceCategory
+        android:title="获取方式"
+        android:summary="Ftp / Modbus" >
+		    
+		<CheckBoxPreference
+		    android:key="ftp"
+		    android:title="使用Ftp?"
+		    android:summaryOn="读取ftp"
+		    android:summaryOff="读取modbus" />
+		
+		<EditTextPreference
+           android:key="ftp_url"
+           android:title="Ftp地址"
+           android:summary="ftp://192.168.0.1/report.txt"
+           android:dialogTitle="Ftp地址"
+           android:defaultValue="ftp://192.168.0.1/report.txt"
+           android:dependency="ftp" 
+           android:persistent="true"
+           />
+		
+		<EditTextPreference
+           android:key="ftp_username"
+           android:title="Ftp登录名"
+           android:summary="匿名用户请使用anonymous"
+           android:dialogTitle="Ftp登录名"
+           android:defaultValue="anonymous"
+           android:dependency="ftp" 
+           android:persistent="true"
+           />
+		
+		<EditTextPreference
+           android:key="ftp_password"
+           android:title="Ftp登录密码"
+           android:summary="匿名用户不需要设置"
+           android:dialogTitle="Ftp登录密码"
+           android:inputType="textPassword"
+           android:dependency="ftp" 
+           android:persistent="true"
+           />
+	</PreferenceCategory>
+	<PreferenceCategory
+        android:title="定时重启" >
+            
+        <CheckBoxPreference
+            android:key="reboot_needed"
+            android:title="每日定时重启?"
+            android:summaryOn="每日重启"
+            android:summaryOff="不必每日重启" />
+        
+        <EditTextPreference
+           android:key="reboot_time"
+           android:title="重启时间"
+           android:summary="hh:mm"
+           android:dialogTitle="重启时间"
+           android:defaultValue="23:30"
+           android:dependency="reboot_needed" 
+           android:persistent="true"
+           />
+    </PreferenceCategory>
+</PreferenceScreen>
