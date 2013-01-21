@@ -1,3 +1,4 @@
+<?xml version="1.0" encoding="utf-8"?>
 <resources xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
 
     <string name="app_name">AirDomeWatchDog</string>
@@ -20,8 +21,14 @@
     <string name="title_section3">Section 3</string>
     <string name="title_section2">Section 2</string>
     <string name="title_section1">Section 1</string>
-    
     <string name="alarm_notification_title">Air dome watch-dog</string>
     <string name="empty">最大日志条数:5000，自动清空.</string>
+    
+    <string name="title_activity_min_max">MinMaxActivity</string>
+    <string name="sensor_name">传感器名称</string>
+    <string name="min_value">最小值</string>
+    <string name="max_value">最大值</string>
+    <string name="btn_add_text">增加</string>
+    <string name="btn_del_text">删除</string>
 
 </resources>

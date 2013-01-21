@@ -76,7 +76,7 @@ extends ALongRunningNonStickyBroadcastService
 	public NotificationManager mNM;
 	private boolean mFtpFileDownloaded;
 	private boolean mFileParsed;
-	private Map params = new HashMap<String, Object>();
+	private HashMap<String, Object> params = new HashMap<String, Object>();
 	private int mTotal;
 	private String mUserAgent;
 	private Intent broadcastIntent = new Intent("com.afeilulu.airdomewatchdog.log");
