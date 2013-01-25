@@ -152,4 +152,49 @@ public class Utils
     	return firstTime;
     }
 	
+    public static void switchFlyMode(Context context){
+		boolean isEnabled = Settings.System.getInt(
+		      context.getContentResolver(), 
+		      Settings.System.AIRPLANE_MODE_ON, 0) == 1;
+
+		// toggle airplane mode
+		Settings.System.putInt(
+		      context.getContentResolver(),
+		      Settings.System.AIRPLANE_MODE_ON, isEnabled ? 0 : 1);
+
+		// Post an intent to reload
+		Intent intent = new Intent(Intent.ACTION_AIRPLANE_MODE_CHANGED);
+		intent.putExtra("state", !isEnabled);
+		context.sendBroadcast(intent);
+		
+		Utils.sleepForInSecs(5);
+	}
+    
+    public static void enableFlyMode(Context context){
+		// enable airplane mode
+		Settings.System.putInt(
+		      context.getContentResolver(),
+		      Settings.System.AIRPLANE_MODE_ON, 1);
+
+		// Post an intent to reload
+		Intent intent = new Intent(Intent.ACTION_AIRPLANE_MODE_CHANGED);
+		intent.putExtra("state", true);
+		context.sendBroadcast(intent);
+		
+		Utils.sleepForInSecs(5);
+	}
+    
+    public static void disableFlyMode(Context context){
+		// enable airplane mode
+		Settings.System.putInt(
+		      context.getContentResolver(),
+		      Settings.System.AIRPLANE_MODE_ON, 0);
+
+		// Post an intent to reload
+		Intent intent = new Intent(Intent.ACTION_AIRPLANE_MODE_CHANGED);
+		intent.putExtra("state", false);
+		context.sendBroadcast(intent);
+		
+		Utils.sleepForInSecs(5);
+	}
 }

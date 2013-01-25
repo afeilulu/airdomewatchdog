@@ -11,9 +11,11 @@
         every 15 seconds after based on the elapsed realtime clock</string>
     -->
     <string name="repeating_scheduled">首次启动时间： <xliff:g id="startat">%1$s</xliff:g> \n
-        每隔 <xliff:g id="hashtags">%2$s</xliff:g> 分钟，获取数据</string>
+        每隔 <xliff:g id="getinterval">%2$s</xliff:g> 分钟，获取数据\n
+        每隔 <xliff:g id="putinterval">%3$s</xliff:g> 分钟，上传数据</string>
     <string name="alarm_service_started">The alarm service has started running</string>
-    <string name="alarm_service_finished">The alarm service has finished running</string>
+    <string name="ftp_service_finished">Ftp读取服务完成</string>
+    <string name="upload_service_finished">Ftp读取服务完成</string>
     <string name="alarm_service_label">Sample Alarm Service</string>
     <string name="alarm_service_notification_id">We use a layout id because it is a unique number</string>
     <string name="title_activity_preference">PreferenceActivity</string>

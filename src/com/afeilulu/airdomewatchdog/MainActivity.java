@@ -56,7 +56,7 @@ public class MainActivity extends SherlockFragmentActivity {
         mList = new ArrayList<String>();
         
         mAdapter = new ArrayAdapter<String>(this, 
-        		android.R.layout.simple_expandable_list_item_1,mList);
+        		android.R.layout.simple_list_item_1,mList);
         mListView.setAdapter(mAdapter);
         
         mListView.setEmptyView(mEmptyView);

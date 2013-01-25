@@ -31,9 +31,17 @@
 		<EditTextPreference
 	       android:key="interval"
 	       android:title="扫描间隔(分)"
-	       android:summary="读取modbus设备时间间隔。单位：分。"
+	       android:summary="读取Ftp时间间隔。单位：分。"
 	       android:dialogTitle="扫描间隔" 
-	       android:defaultValue="2"/>
+	       android:defaultValue="5"/>
+		
+		<EditTextPreference
+           android:key="upload_interval"
+           android:title="上传间隔(分)"
+           android:summary="单位：分。"
+           android:dialogTitle="上传间隔" 
+           android:defaultValue="60"/>
+		
 	</PreferenceCategory>
 	<PreferenceCategory
         android:title="获取方式"
@@ -75,6 +83,19 @@
            android:persistent="true"
            />
 	</PreferenceCategory>
+	<PreferenceCategory
+        android:title="阀值" >
+            
+        <CheckBoxPreference
+            android:key="valve_enable"
+            android:title="超过阀值时根据扫描时间上传" >
+        </CheckBoxPreference>
+        <Preference
+            android:key="set_valve"
+            android:title="设置感应器阀值"
+            android:dependency="valve_enable" >
+        </Preference>
+    </PreferenceCategory>
 	<PreferenceCategory
         android:title="定时重启" >
             

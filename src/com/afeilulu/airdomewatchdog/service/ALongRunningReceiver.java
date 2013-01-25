@@ -66,6 +66,7 @@ extends BroadcastReceiver
     	intent.putExtra("password",prefs.getString("password", null));
     	intent.putExtra("webservice_url",prefs.getString("webservice_url", null));
     	intent.putExtra("interval",prefs.getString("interval", null));
+    	intent.putExtra("upload_interval",prefs.getString("upload_interval", null));
     	intent.putExtra("next_time",prefs.getString("next_time", null));
     	
     	// original intent is refered in handleBroadcastIntent
@@ -78,9 +79,15 @@ extends BroadcastReceiver
     	if (prefs.getString("next_time", null) != null)
     		next_time = prefs.getString("next_time", null);
     	
+    	long upload_interval = 0;
+    	if (prefs.getString("upload_interval", null) != null)
+    		upload_interval = Integer.parseInt(prefs.getString("upload_interval", null));
+    	
     	long firstTime = 0;
-    	if (next_time == null)
+    	if (next_time == null){
     		firstTime = System.currentTimeMillis();
+    		next_time = "Now";
+    	}
     	else
     		firstTime = Utils.getTimeInMillis(next_time);
     	
@@ -89,9 +96,14 @@ extends BroadcastReceiver
                 0, serviceIntent, PendingIntent.FLAG_CANCEL_CURRENT);
         
         AlarmManager am = (AlarmManager)context.getSystemService(Context.ALARM_SERVICE);
+        
         am.setRepeating(AlarmManager.RTC_WAKEUP,
-                        firstTime, interval * 60 * 1000, mAlarmSender);
-        /*
+        		prefs.getBoolean("exception_happened", false)? firstTime + interval * 60 * 1000:firstTime,
+                        interval * 60 * 1000,
+                        mAlarmSender);
+        
+        // *********************************************************************************
+        AlarmManager amUpload = (AlarmManager)context.getSystemService(Context.ALARM_SERVICE);
         // schedule xml upload service
         Intent uploadIntent = new Intent(context,getLRSUploadClass());
     	
@@ -102,14 +114,22 @@ extends BroadcastReceiver
                 0, uploadIntent, PendingIntent.FLAG_CANCEL_CURRENT);
         
         // Schedule the upload!
-        am.setRepeating(AlarmManager.RTC_WAKEUP,
-                        firstTime, period_upload * 60 * 1000, mUploadIntent);
-        */ 
+        long upload_interval_millisecond = upload_interval * 60 * 1000;
+        long upload_firstTime = firstTime + interval * 60 * 1000;
+        if (prefs.getBoolean("exception_happened", false)){
+        	upload_interval_millisecond = interval * 60 * 1000;
+        	upload_firstTime = firstTime; // upload now!!!
+        }
+        amUpload.setRepeating(AlarmManager.RTC_WAKEUP,
+                        upload_firstTime, 
+                        upload_interval_millisecond, mUploadIntent);
+         
         // Tell the user about what we did.
-        String schedule = context.getString(R.string.repeating_scheduled, next_time, interval);
+        
+        String schedule = context.getString(R.string.repeating_scheduled, next_time, interval, upload_interval_millisecond / 60000);
         Toast.makeText(context, schedule,
                 Toast.LENGTH_LONG).show();
-        
+        // *********************************************************************************
         
         // schdule for reboot
         boolean rebootNeeded = prefs.getBoolean("reboot_needed", false);

@@ -4,12 +4,6 @@ public class AirDomeBCR
 extends ALongRunningReceiver
 {
 	@Override
-	public Class getLRSClass() 
-	{
-		return ModbusScanService.class;
-	}
-
-	@Override
 	public Class getLRSUploadClass() {
 		return UploadService.class;
 	}
@@ -22,6 +16,12 @@ extends ALongRunningReceiver
 	@Override
 	public Class getRebootClass() {
 		return RebootService.class;
+	}
+
+	@Override
+	public Class getLRSClass() {
+		// TODO Auto-generated method stub
+		return null;
 	}
 
 }

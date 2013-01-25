@@ -6,62 +6,40 @@ import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileOutputStream;
 import java.io.IOException;
-import java.io.InputStream;
 import java.io.InputStreamReader;
-import java.io.OutputStream;
-import java.lang.reflect.Field;
-import java.lang.reflect.InvocationTargetException;
-import java.lang.reflect.Method;
-import java.net.HttpURLConnection;
 import java.net.InetAddress;
 import java.net.MalformedURLException;
-import java.net.SocketTimeoutException;
 import java.net.URL;
 import java.text.DateFormat;
-import java.text.SimpleDateFormat;
-import java.util.Calendar;
+import java.util.ArrayList;
 import java.util.Date;
 import java.util.HashMap;
-import java.util.Locale;
+import java.util.List;
 import java.util.Map;
-import java.util.TimeZone;
 
 import org.apache.commons.net.ftp.FTPClient;
 
 import android.app.Notification;
 import android.app.NotificationManager;
 import android.app.PendingIntent;
-import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
-import android.content.IntentFilter;
 import android.content.SharedPreferences;
 import android.content.pm.PackageInfo;
 import android.content.pm.PackageManager;
-import android.net.ConnectivityManager;
-import android.net.NetworkInfo;
-import android.net.wifi.WifiManager;
 import android.os.Binder;
 import android.os.IBinder;
 import android.os.Parcel;
 import android.os.RemoteException;
 import android.preference.PreferenceManager;
-import android.provider.Settings;
-import android.telephony.CellLocation;
-import android.telephony.PhoneStateListener;
-import android.telephony.ServiceState;
-import android.telephony.SignalStrength;
-import android.telephony.TelephonyManager;
-import android.text.TextUtils;
 import android.util.Log;
 import android.widget.Toast;
 
 import com.afeilulu.airdomewatchdog.MainActivity;
+import com.afeilulu.airdomewatchdog.MinMaxActivity;
 import com.afeilulu.airdomewatchdog.R;
-import com.afeilulu.airdomewatchdog.Utils.Md5Digest;
 import com.afeilulu.airdomewatchdog.Utils.Utils;
 import com.google.gson.Gson;
-import com.google.gson.JsonSyntaxException;
 
 /*
  * Uses IntentService as the base class
@@ -99,10 +77,10 @@ extends ALongRunningNonStickyBroadcastService
 	protected void handleBroadcastIntent(Intent broadcastIntent) 
 	{	
 		String currentDateTimeString = DateFormat.getDateTimeInstance().format(new Date());
-		sendLog("服务启动:" + currentDateTimeString);
+		sendLog("Ftp读取服务启动:" + currentDateTimeString);
 		
 		sendLog("关闭飞行模式");
-		disableFlyMode();
+		Utils.disableFlyMode(getApplicationContext());
 		
 		Log.d(tag,broadcastIntent.getStringExtra("project_id"));
 		Log.d(tag,broadcastIntent.getStringExtra("password"));
@@ -122,7 +100,7 @@ extends ALongRunningNonStickyBroadcastService
 		mNM = (NotificationManager)getSystemService(NOTIFICATION_SERVICE);
 		
 		SharedPreferences prefs =
-    			PreferenceManager.getDefaultSharedPreferences(this);
+    			PreferenceManager.getDefaultSharedPreferences(this.getApplicationContext());
 		
 		prefs.edit().putBoolean("is_modbus_running", true).commit();
 		
@@ -176,13 +154,64 @@ extends ALongRunningNonStickyBroadcastService
         	mFtpFileDownloaded = GetFileFTP(srcFileSpec,this.getFilesDir().toString(),"report.txt",
         			ftphostname, ftpusername, ftppassword);
             
-            prefs.edit().putBoolean("is_modbus_running", false).commit();
+        	if (mFtpFileDownloaded){
+    	        showNotification("读取Ftp文件完成");
+    	        prefs.edit().putBoolean("is_modbus_running", false).commit();
+    	        
+    	        // start to check valve value
+    	        if (prefs.getBoolean("valve_enable", false)){
+    	        	
+    	        	// get valve
+    	        	String jsonValve = prefs.getString(MinMaxActivity.TAG, null);
+    	        	if (jsonValve != null){
+    	        		ArrayList<String> list = (ArrayList<String>) new Gson().fromJson(jsonValve, List.class);
+    	        		
+    	        		Map sensor = new HashMap();
+    	    	        try {
+    	    	        	sensor = GetMapFromFile("report.txt");
+    	    	        	if (sensor == null || sensor.isEmpty())
+    	    	        		mFileParsed = false;
+    	    	        	else{
+    	    	        		mFileParsed = true;
+    	    	        		
+    	    	        		int index = -1;
+    	    	        		for (int i = 0; i < list.size(); i++) {
+    	    	        			Map itemMap = new Gson().fromJson(list.get(i), Map.class);
+    	    	        			String sensorName = itemMap.get("name").toString();
+									if (sensor.containsKey(sensorName)){
+										Double currentValue = Double.valueOf(sensor.get(sensorName).toString().trim());
+										if (currentValue < Double.valueOf(itemMap.get("min").toString())
+											|| currentValue > Double.valueOf(itemMap.get("max").toString())){
+												// we found exception happen here
+												index = i;
+												break;
+											}
+									}
+								}
+    	    	        		
+    	    	        		if (index >= 0){
+    	    	        			prefs.edit().putBoolean("exception_happened", true).commit();
+									// start broadcast
+				        			String action = "com.afeilulu.airdomewatchdog.intent.action.PREFERENCE_CHANGED";
+				        			Intent intent = new Intent(action);
+				        			this.sendBroadcast(intent);
+    	    	        		} else 
+    	    	        			prefs.edit().putBoolean("exception_happened", false).commit();
+    	    	        	}
+    	    			} catch (IOException e) {
+    	    				e.printStackTrace();
+    	    				mFileParsed = false;
+    	    			}
+    	    	        
+    	        	}
+    	        }
+        	}
             
         } catch (Exception e){
         	e.printStackTrace();
         }
         
-        if (mFtpFileDownloaded){
+        /*if (mFtpFileDownloaded){
 	        showNotification("读取Ftp文件完成。开始解析文件...");
 	        Map sensor = new HashMap();
 	        try {
@@ -233,17 +262,17 @@ extends ALongRunningNonStickyBroadcastService
 //		        sendLog("空闲时间，保持wifi关闭3G");
 //				Utils.enableWifi(this, null,null);
 	            sendLog("空闲时间，启动飞行模式");
-				enableFlyMode();
+				Utils.enableFlyMode(getApplicationContext());
 				
 	        } else {
 	        	showNotification("文件解析失败！");
 	        }
         } else {
         	showNotification("从Ftp获取文件失败，请检查网络与Ftp设置!");
-        }
+        }*/
         
         // Done with our work...  stop the service!
-//        this.stopSelf();
+        this.stopSelf();
 		
 	}
 	
@@ -254,7 +283,7 @@ extends ALongRunningNonStickyBroadcastService
 //        mNM.cancel(R.string.alarm_service_notification_id);
 
         // Tell the user we stopped.
-        Toast.makeText(this, R.string.alarm_service_finished, Toast.LENGTH_SHORT).show();
+        Toast.makeText(this, R.string.ftp_service_finished, Toast.LENGTH_SHORT).show();
         
 //        stopMonitoringConnection();
     }
@@ -360,7 +389,7 @@ extends ALongRunningNonStickyBroadcastService
     	return params;
     }
 	
-	private static String readInputStream(InputStream inputStream)
+	/*private static String readInputStream(InputStream inputStream)
             throws IOException {
         BufferedReader bufferedReader = new BufferedReader(new InputStreamReader(inputStream));
         String responseLine;
@@ -408,7 +437,7 @@ extends ALongRunningNonStickyBroadcastService
 //                    : new HandlerException(exceptionMessage);
             throw(new IOException(exceptionMessage));
         }
-    }
+    }*/
 	
 	/**
      * Build and return a user-agent string that can identify this application
@@ -434,7 +463,7 @@ extends ALongRunningNonStickyBroadcastService
     	sendBroadcast(broadcastIntent);
     }
 
-    private void postToServer(String json, URL url){
+    /*private void postToServer(String json, URL url){
     	byte[] postJsonBytes = json.getBytes();
 
 		try {
@@ -528,51 +557,6 @@ extends ALongRunningNonStickyBroadcastService
         		sendLog("已重新设定服务");
         	}
         }
-    }
+    }*/
     
-    public void switchFlyMode(){
-		boolean isEnabled = Settings.System.getInt(
-		      getContentResolver(), 
-		      Settings.System.AIRPLANE_MODE_ON, 0) == 1;
-
-		// toggle airplane mode
-		Settings.System.putInt(
-		      getContentResolver(),
-		      Settings.System.AIRPLANE_MODE_ON, isEnabled ? 0 : 1);
-
-		// Post an intent to reload
-		Intent intent = new Intent(Intent.ACTION_AIRPLANE_MODE_CHANGED);
-		intent.putExtra("state", !isEnabled);
-		sendBroadcast(intent);
-		
-		Utils.sleepForInSecs(5);
-	}
-    
-    public void enableFlyMode(){
-		// enable airplane mode
-		Settings.System.putInt(
-		      getContentResolver(),
-		      Settings.System.AIRPLANE_MODE_ON, 1);
-
-		// Post an intent to reload
-		Intent intent = new Intent(Intent.ACTION_AIRPLANE_MODE_CHANGED);
-		intent.putExtra("state", true);
-		sendBroadcast(intent);
-		
-		Utils.sleepForInSecs(5);
-	}
-    
-    public void disableFlyMode(){
-		// enable airplane mode
-		Settings.System.putInt(
-		      getContentResolver(),
-		      Settings.System.AIRPLANE_MODE_ON, 0);
-
-		// Post an intent to reload
-		Intent intent = new Intent(Intent.ACTION_AIRPLANE_MODE_CHANGED);
-		intent.putExtra("state", false);
-		sendBroadcast(intent);
-		
-		Utils.sleepForInSecs(5);
-	}
 }
