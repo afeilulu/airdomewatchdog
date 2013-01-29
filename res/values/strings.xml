@@ -15,7 +15,7 @@
         每隔 <xliff:g id="putinterval">%3$s</xliff:g> 分钟，上传数据</string>
     <string name="alarm_service_started">The alarm service has started running</string>
     <string name="ftp_service_finished">Ftp读取服务完成</string>
-    <string name="upload_service_finished">Ftp读取服务完成</string>
+    <string name="upload_service_finished">3G上传服务完成</string>
     <string name="alarm_service_label">Sample Alarm Service</string>
     <string name="alarm_service_notification_id">We use a layout id because it is a unique number</string>
     <string name="title_activity_preference">PreferenceActivity</string>

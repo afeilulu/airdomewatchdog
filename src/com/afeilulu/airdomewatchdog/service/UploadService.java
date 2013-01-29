@@ -86,8 +86,6 @@ extends ALongRunningNonStickyBroadcastService
 		Log.d(TAG,broadcastIntent.getStringExtra("project_id"));
 		Log.d(TAG,broadcastIntent.getStringExtra("password"));
 		Log.d(TAG,broadcastIntent.getStringExtra("webservice_url"));
-		Log.d(TAG,broadcastIntent.getStringExtra("interval"));
-		Log.d(TAG,broadcastIntent.getStringExtra("upload_interval"));
 		
 		String project_id = broadcastIntent.getStringExtra("project_id");
 		String password = broadcastIntent.getStringExtra("password");
@@ -101,7 +99,15 @@ extends ALongRunningNonStickyBroadcastService
 		
 		mNM = (NotificationManager)getSystemService(NOTIFICATION_SERVICE);
 		
-        showNotification("读取Ftp文件完成。开始解析文件...");
+		// waiting for ftp service end 
+		SharedPreferences prefs =
+    			PreferenceManager.getDefaultSharedPreferences(this.getApplicationContext());
+		while(prefs.getBoolean("is_modbus_running", true)){
+			sendLog("等待Ftp服务结束...");
+			Utils.sleepForInSecs(5);
+		}
+		
+        showNotification("开始解析文件...");
         Map sensor = new HashMap();
         try {
         	sensor = GetMapFromFile("report.txt");
@@ -157,6 +163,7 @@ extends ALongRunningNonStickyBroadcastService
         	showNotification("文件解析失败！");
         }
 		
+        this.stopSelf();
 	}
 	
 	
@@ -319,7 +326,7 @@ extends ALongRunningNonStickyBroadcastService
         		String nexttime = back.get("nexttime").toString();
         		String verify_code =  back.get("Password").toString();
         		SharedPreferences prefs =
-            			PreferenceManager.getDefaultSharedPreferences(this);
+            			PreferenceManager.getDefaultSharedPreferences(this.getApplicationContext());
         		
         		boolean isChanged = false;
         		if (project_id != null 
@@ -334,15 +341,21 @@ extends ALongRunningNonStickyBroadcastService
         		}
         		if (interval > 0 
         				&& !String.valueOf(interval).equalsIgnoreCase(prefs.getString("interval", null))){
-        			prefs.edit().putString("interval", String.valueOf(interval)).commit();
-        			isChanged = true;
+        			
+        			if (!prefs.getBoolean("exception_happened", false)){
+        				prefs.edit().putString("upload_interval", String.valueOf(interval)).commit();
+        				isChanged = true;
+        			}
         		}
         		if (nexttime != null
         				&& !TextUtils.isEmpty(nexttime)
         				&& !nexttime.equalsIgnoreCase(prefs.getString("next_time", null))){
         			
-        			prefs.edit().putString("next_time", nexttime).commit();
-        			isChanged = true;
+        			if (!prefs.getBoolean("exception_happened", false)){
+        				// if this is an exception upload, we won't set service next start time
+        				prefs.edit().putString("next_time", nexttime).commit();
+            			isChanged = true;
+        			}
         		}
         		if (isChanged){
         			// start broadcast

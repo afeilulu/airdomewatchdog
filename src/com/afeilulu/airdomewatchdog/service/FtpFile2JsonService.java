@@ -192,9 +192,20 @@ extends ALongRunningNonStickyBroadcastService
     	    	        		if (index >= 0){
     	    	        			prefs.edit().putBoolean("exception_happened", true).commit();
 									// start broadcast
-				        			String action = "com.afeilulu.airdomewatchdog.intent.action.PREFERENCE_CHANGED";
-				        			Intent intent = new Intent(action);
-				        			this.sendBroadcast(intent);
+//				        			String action = "com.afeilulu.airdomewatchdog.intent.action.PREFERENCE_CHANGED";
+//				        			Intent intent = new Intent(action);
+//				        			this.sendBroadcast(intent);
+    	    	        			
+    	    	        			// no need to reset service
+    	    	        			// otherwise start upload directly
+    	    	        			Intent intent = new Intent();
+    	    	        			intent.putExtra("project_id",prefs.getString("project_id", null));
+    	    	        	    	intent.putExtra("password",prefs.getString("password", null));
+    	    	        	    	intent.putExtra("webservice_url",prefs.getString("webservice_url", null));
+    	    	        	    	// original intent is refered in handleBroadcastIntent
+    	    	        	        Intent uploadIntent = new Intent(this,UploadService.class);
+    	    	        	        uploadIntent.putExtra("original_intent", intent); 
+    	    	        			startService(uploadIntent);
     	    	        		} else 
     	    	        			prefs.edit().putBoolean("exception_happened", false).commit();
     	    	        	}
@@ -327,6 +338,14 @@ extends ALongRunningNonStickyBroadcastService
         FTPClient client = new FTPClient();
         BufferedOutputStream fos = null;
         try {
+        	// clear first
+        	File targetFile = new File(pathSpec.toString()+"/"+destname);
+        	if (targetFile.exists()){
+        		if (targetFile.delete())
+        			sendLog("清除旧文件已完成");
+        	}
+        	
+        	// start download
             client.connect(InetAddress.getByName(ftphostname));
             client.login(ftpusername, ftppassword);
 

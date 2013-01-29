@@ -115,11 +115,7 @@ extends BroadcastReceiver
         
         // Schedule the upload!
         long upload_interval_millisecond = upload_interval * 60 * 1000;
-        long upload_firstTime = firstTime + interval * 60 * 1000;
-        if (prefs.getBoolean("exception_happened", false)){
-        	upload_interval_millisecond = interval * 60 * 1000;
-        	upload_firstTime = firstTime; // upload now!!!
-        }
+        long upload_firstTime = firstTime + upload_interval_millisecond;
         amUpload.setRepeating(AlarmManager.RTC_WAKEUP,
                         upload_firstTime, 
                         upload_interval_millisecond, mUploadIntent);
