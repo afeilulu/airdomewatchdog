@@ -2,6 +2,7 @@ package com.afeilulu.airdomewatchdog.service;
 
 import java.io.BufferedOutputStream;
 import java.io.BufferedReader;
+import java.io.File;
 import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.InputStream;
@@ -77,11 +78,14 @@ extends ALongRunningNonStickyBroadcastService
 	@Override
 	protected void handleBroadcastIntent(Intent broadcastIntent) 
 	{
+		// waiting for ftp service end 
+		SharedPreferences prefs =
+    			PreferenceManager.getDefaultSharedPreferences(this.getApplicationContext());
+		
+		prefs.edit().putBoolean("is_upload_running", true).commit();
+				
 		String currentDateTimeString = DateFormat.getDateTimeInstance().format(new Date());
 		sendLog("3G上传服务启动:" + currentDateTimeString);
-		
-		sendLog("关闭飞行模式");
-		Utils.disableFlyMode(getApplicationContext());
 		
 		Log.d(TAG,broadcastIntent.getStringExtra("project_id"));
 		Log.d(TAG,broadcastIntent.getStringExtra("password"));
@@ -99,13 +103,13 @@ extends ALongRunningNonStickyBroadcastService
 		
 		mNM = (NotificationManager)getSystemService(NOTIFICATION_SERVICE);
 		
-		// waiting for ftp service end 
-		SharedPreferences prefs =
-    			PreferenceManager.getDefaultSharedPreferences(this.getApplicationContext());
 		while(prefs.getBoolean("is_modbus_running", true)){
 			sendLog("等待Ftp服务结束...");
 			Utils.sleepForInSecs(5);
 		}
+		
+		sendLog("关闭飞行模式");
+		Utils.disableFlyMode(getApplicationContext());
 		
         showNotification("开始解析文件...");
         Map sensor = new HashMap();
@@ -143,7 +147,7 @@ extends ALongRunningNonStickyBroadcastService
             Log.d(TAG,"json = " + json);
             sendLog(json);
             
-            showNotification("文件解析完成。关闭wifi...");
+            showNotification("文件解析完成。");
             if (Utils.disableWifi(this))
             	showNotification("切换为3G网络成功...");
             else {
@@ -154,15 +158,15 @@ extends ALongRunningNonStickyBroadcastService
             mCount = 1;
             postToServer(json, mPostUrl);
             
-//		        sendLog("空闲时间，保持wifi关闭3G");
-//				Utils.enableWifi(this, null,null);
-            sendLog("空闲时间，启动飞行模式");
-			Utils.enableFlyMode(getApplicationContext());
-			
         } else {
         	showNotification("文件解析失败！");
         }
 		
+        prefs.edit().putBoolean("is_upload_running", false).commit();
+        
+        sendLog("空闲时间，启动飞行模式");
+		Utils.enableFlyMode(getApplicationContext());
+        
         this.stopSelf();
 	}
 	
@@ -298,6 +302,12 @@ extends ALongRunningNonStickyBroadcastService
             
             handleBackJson(jsonBack);
             
+            // clear after upload
+        	File targetFile = new File(getFilesDir()+"/report.txt");
+        	if (targetFile.exists()){
+        		if (targetFile.delete())
+        			sendLog("清除旧文件已完成");
+        	}
 		} catch (SocketTimeoutException e) {
 			sendLog("文件上传超时!尝试次数:" + mCount);
 			mCount++;
@@ -321,9 +331,9 @@ extends ALongRunningNonStickyBroadcastService
         	int returnResult =  ((Double) back.get("return")).intValue();
         	if (returnResult > 0){
         		String project_id = back.get("ID").toString();
-        		String newPassword = back.get("NewPass").toString();
-        		int interval = ((Double) back.get("interval")).intValue();
-        		String nexttime = back.get("nexttime").toString();
+        		String newPassword = back.get("NewPass")==null?null:back.get("NewPass").toString();
+        		int interval = back.get("interval")==null?0:((Double) back.get("interval")).intValue();
+        		String nexttime = back.get("nexttime")==null?null:back.get("nexttime").toString();
         		String verify_code =  back.get("Password").toString();
         		SharedPreferences prefs =
             			PreferenceManager.getDefaultSharedPreferences(this.getApplicationContext());

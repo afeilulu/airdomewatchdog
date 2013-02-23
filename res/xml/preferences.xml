@@ -50,8 +50,8 @@
 		<CheckBoxPreference
 		    android:key="ftp"
 		    android:title="使用Ftp?"
-		    android:summaryOn="读取ftp"
-		    android:summaryOff="读取modbus" />
+		    android:summaryOn="从ftp获取文件"
+		    android:summaryOff="直接读取本地文件" />
 		
 		<EditTextPreference
            android:key="ftp_url"

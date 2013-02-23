@@ -57,17 +57,23 @@ extends BroadcastReceiver
 
     	Intent serviceIntent;
     	boolean useFtp = prefs.getBoolean("ftp", false);
+    	/*
     	if (useFtp)
     		serviceIntent = new Intent(context,getLRSFtp());
     	else
     		serviceIntent = new Intent(context,getLRSClass());
-    	    	
+    	*/
+    	serviceIntent = new Intent(context,getLRSFtp());
+    	
     	intent.putExtra("project_id",prefs.getString("project_id", null));
     	intent.putExtra("password",prefs.getString("password", null));
     	intent.putExtra("webservice_url",prefs.getString("webservice_url", null));
     	intent.putExtra("interval",prefs.getString("interval", null));
     	intent.putExtra("upload_interval",prefs.getString("upload_interval", null));
     	intent.putExtra("next_time",prefs.getString("next_time", null));
+    	
+    	// initial value is false
+    	prefs.edit().putBoolean("is_upload_running", false).commit();
     	
     	// original intent is refered in handleBroadcastIntent
     	serviceIntent.putExtra("original_intent", intent);  
@@ -88,8 +94,8 @@ extends BroadcastReceiver
     		firstTime = System.currentTimeMillis();
     		next_time = "Now";
     	}
-    	else
-    		firstTime = Utils.getTimeInMillis(next_time);
+//    	else
+//    		firstTime = Utils.getTimeInMillis(next_time);
     	
     	// schedule ModbusSampler service 
     	mAlarmSender = PendingIntent.getService(context,

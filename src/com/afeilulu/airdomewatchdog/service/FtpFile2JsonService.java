@@ -62,6 +62,7 @@ extends ALongRunningNonStickyBroadcastService
 	private int REPEAT_POST_MAX = 3;
 	private int mCount;
 	private URL mPostUrl;
+	private boolean useFtp;
 	
 	//Required by IntentService
 	public FtpFile2JsonService()
@@ -76,17 +77,16 @@ extends ALongRunningNonStickyBroadcastService
 	@Override
 	protected void handleBroadcastIntent(Intent broadcastIntent) 
 	{	
-		String currentDateTimeString = DateFormat.getDateTimeInstance().format(new Date());
-		sendLog("Ftp读取服务启动:" + currentDateTimeString);
-		
-		sendLog("关闭飞行模式");
-		Utils.disableFlyMode(getApplicationContext());
+		SharedPreferences prefs =
+    			PreferenceManager.getDefaultSharedPreferences(this.getApplicationContext());
+		prefs.edit().putBoolean("is_modbus_running", true).commit(); // service start
 		
 		Log.d(tag,broadcastIntent.getStringExtra("project_id"));
 		Log.d(tag,broadcastIntent.getStringExtra("password"));
 		Log.d(tag,broadcastIntent.getStringExtra("webservice_url"));
 		Log.d(tag,broadcastIntent.getStringExtra("interval"));
 		
+		String currentDateTimeString = DateFormat.getDateTimeInstance().format(new Date());
 		String project_id = broadcastIntent.getStringExtra("project_id");
 		String password = broadcastIntent.getStringExtra("password");
 		try {
@@ -99,189 +99,155 @@ extends ALongRunningNonStickyBroadcastService
 		
 		mNM = (NotificationManager)getSystemService(NOTIFICATION_SERVICE);
 		
-		SharedPreferences prefs =
-    			PreferenceManager.getDefaultSharedPreferences(this.getApplicationContext());
 		
-		prefs.edit().putBoolean("is_modbus_running", true).commit();
-		
-		// check and enable wifi
-		if (!Utils.enableWifi(this, "TP-LINK_387C14","87669955")){
-			prefs.edit().putBoolean("is_modbus_running", false).commit();
-			return;
-		}
-		
-        showNotification("开始读取Ftp文件...");
-        
-        try{  
-        	String ftphostname = prefs.getString("ftp_url", null);
-        	String ftpusername = prefs.getString("ftp_username", null);
-        	String ftppassword = prefs.getString("ftp_password", null);
-        	sendLog("host:" + ftphostname);
-        	sendLog("username:" + ftpusername);
-        	
-        	if (ftphostname == null || ftphostname.length() < 1){
-        		showNotification("Ftp地址设置错误，请检查设置！");
-        	} else {
-        		if (ftpusername == null || ftpusername.length() < 1){
-        			ftpusername = "anonymous";
-        			ftppassword = "";
-        		} else if(ftppassword == null || ftppassword.length() < 1){
-        			showNotification("Ftp登录密码设置错误，请检查设置！");
-        		}
-        	}
-        	
-        	// anaylize ftphostname
-        	String srcFileSpec = "";
-        	String relativeUrl;
-        	if (ftphostname.startsWith("ftp://"))
-        		relativeUrl = ftphostname.substring(6);
-        	else
-        		relativeUrl = ftphostname;
-        	
-        	String[] strs = relativeUrl.split("/");
-        	if (strs == null || strs.length < 2)
-        		showNotification("Ftp地址设置错误，请检查设置！");
-        	else{
-        		ftphostname = strs[0];
-        		for (int i = 1; i < strs.length; i++) {
-        			if (srcFileSpec.length() > 1)
-        				srcFileSpec = srcFileSpec + "/" + strs[i];
-        			else
-        				srcFileSpec = strs[i];
-				}
-        	}
-        	
-        	mFtpFileDownloaded = GetFileFTP(srcFileSpec,this.getFilesDir().toString(),"report.txt",
-        			ftphostname, ftpusername, ftppassword);
-            
-        	if (mFtpFileDownloaded){
-    	        showNotification("读取Ftp文件完成");
-    	        prefs.edit().putBoolean("is_modbus_running", false).commit();
-    	        
-    	        // start to check valve value
-    	        if (prefs.getBoolean("valve_enable", false)){
-    	        	
-    	        	// get valve
-    	        	String jsonValve = prefs.getString(MinMaxActivity.TAG, null);
-    	        	if (jsonValve != null){
-    	        		ArrayList<String> list = (ArrayList<String>) new Gson().fromJson(jsonValve, List.class);
-    	        		
-    	        		Map sensor = new HashMap();
-    	    	        try {
-    	    	        	sensor = GetMapFromFile("report.txt");
-    	    	        	if (sensor == null || sensor.isEmpty())
-    	    	        		mFileParsed = false;
-    	    	        	else{
-    	    	        		mFileParsed = true;
-    	    	        		
-    	    	        		int index = -1;
-    	    	        		for (int i = 0; i < list.size(); i++) {
-    	    	        			Map itemMap = new Gson().fromJson(list.get(i), Map.class);
-    	    	        			String sensorName = itemMap.get("name").toString();
-									if (sensor.containsKey(sensorName)){
-										Double currentValue = Double.valueOf(sensor.get(sensorName).toString().trim());
-										if (currentValue < Double.valueOf(itemMap.get("min").toString())
-											|| currentValue > Double.valueOf(itemMap.get("max").toString())){
-												// we found exception happen here
-												index = i;
-												break;
-											}
-									}
+		useFtp = prefs.getBoolean("ftp", false);
+    	if (useFtp) {
+			sendLog("Ftp读取服务启动:" + currentDateTimeString);
+			
+//			sendLog("关闭飞行模式");
+//			Utils.disableFlyMode(getApplicationContext());
+			
+			sendLog("打开wifi");
+			
+			// check and enable wifi
+			if (!Utils.enableWifi(this, "TP-LINK_387C14","87669955")){
+				prefs.edit().putBoolean("is_modbus_running", false).commit();
+				return;
+			}
+			
+	        showNotification("开始读取Ftp文件...");
+	        
+	        try{  
+	        	String ftphostname = prefs.getString("ftp_url", null);
+	        	String ftpusername = prefs.getString("ftp_username", null);
+	        	String ftppassword = prefs.getString("ftp_password", null);
+	        	sendLog("host:" + ftphostname);
+	        	sendLog("username:" + ftpusername);
+	        	
+	        	if (ftphostname == null || ftphostname.length() < 1){
+	        		showNotification("Ftp地址设置错误，请检查设置！");
+	        	} else {
+	        		if (ftpusername == null || ftpusername.length() < 1){
+	        			ftpusername = "anonymous";
+	        			ftppassword = "";
+	        		} else if(ftppassword == null || ftppassword.length() < 1){
+	        			showNotification("Ftp登录密码设置错误，请检查设置！");
+	        		}
+	        	}
+	        	
+	        	// anaylize ftphostname
+	        	String srcFileSpec = "";
+	        	String relativeUrl;
+	        	if (ftphostname.startsWith("ftp://"))
+	        		relativeUrl = ftphostname.substring(6);
+	        	else
+	        		relativeUrl = ftphostname;
+	        	
+	        	String[] strs = relativeUrl.split("/");
+	        	if (strs == null || strs.length < 2)
+	        		showNotification("Ftp地址设置错误，请检查设置！");
+	        	else{
+	        		ftphostname = strs[0];
+	        		for (int i = 1; i < strs.length; i++) {
+	        			if (srcFileSpec.length() > 1)
+	        				srcFileSpec = srcFileSpec + "/" + strs[i];
+	        			else
+	        				srcFileSpec = strs[i];
+					}
+	        	}
+	        	
+	        	mFtpFileDownloaded = GetFileFTP(srcFileSpec,this.getFilesDir().toString(),"report.txt",
+	        			ftphostname, ftpusername, ftppassword);
+	        	
+	        	if (mFtpFileDownloaded)
+	    	        showNotification("读取Ftp文件完成");
+	        } catch (Exception e){
+	        	e.printStackTrace();
+	        }    
+    	} else {
+    		sendLog("直接读取文件");
+    		mFtpFileDownloaded = true; // read file directly
+    	}
+    	
+    	File targetFile = new File(getFilesDir() + "/report.txt");
+    	if (!targetFile.exists()){
+    		sendLog("文件不存在!");
+    		mFtpFileDownloaded = false;
+    	}
+    	
+    	if (mFtpFileDownloaded){
+	        // start to check valve value
+	        if (prefs.getBoolean("valve_enable", false)){
+	        	
+	        	// get valve
+	        	String jsonValve = prefs.getString(MinMaxActivity.TAG, null);
+	        	if (jsonValve != null){
+	        		ArrayList<String> list = (ArrayList<String>) new Gson().fromJson(jsonValve, List.class);
+	        		
+	        		Map sensor = new HashMap();
+	    	        try {
+	    	        	sensor = GetMapFromFile("report.txt");
+	    	        	if (sensor == null || sensor.isEmpty())
+	    	        		mFileParsed = false;
+	    	        	else{
+	    	        		mFileParsed = true;
+	    	        		
+	    	        		// check valve value
+	    	        		int index = -1;
+	    	        		for (int i = 0; i < list.size(); i++) {
+	    	        			Map itemMap = new Gson().fromJson(list.get(i), Map.class);
+	    	        			String sensorName = itemMap.get("name").toString();
+								if (sensor.containsKey(sensorName)){
+									Double currentValue = Double.valueOf(sensor.get(sensorName).toString().trim());
+									if (currentValue < Double.valueOf(itemMap.get("min").toString())
+										|| currentValue > Double.valueOf(itemMap.get("max").toString())){
+											// we found exception happen here
+											index = i;
+											break;
+										}
 								}
-    	    	        		
-    	    	        		if (index >= 0){
-    	    	        			prefs.edit().putBoolean("exception_happened", true).commit();
-									// start broadcast
+							}
+	    	        		
+	    	        		if (index >= 0){
+	    	        			prefs.edit().putBoolean("exception_happened", true).commit();
+								// start broadcast
 //				        			String action = "com.afeilulu.airdomewatchdog.intent.action.PREFERENCE_CHANGED";
 //				        			Intent intent = new Intent(action);
 //				        			this.sendBroadcast(intent);
-    	    	        			
-    	    	        			// no need to reset service
-    	    	        			// otherwise start upload directly
-    	    	        			Intent intent = new Intent();
-    	    	        			intent.putExtra("project_id",prefs.getString("project_id", null));
-    	    	        	    	intent.putExtra("password",prefs.getString("password", null));
-    	    	        	    	intent.putExtra("webservice_url",prefs.getString("webservice_url", null));
-    	    	        	    	// original intent is refered in handleBroadcastIntent
-    	    	        	        Intent uploadIntent = new Intent(this,UploadService.class);
-    	    	        	        uploadIntent.putExtra("original_intent", intent); 
-    	    	        			startService(uploadIntent);
-    	    	        		} else 
-    	    	        			prefs.edit().putBoolean("exception_happened", false).commit();
-    	    	        	}
-    	    			} catch (IOException e) {
-    	    				e.printStackTrace();
-    	    				mFileParsed = false;
-    	    			}
-    	    	        
-    	        	}
-    	        }
-        	}
-            
-        } catch (Exception e){
-        	e.printStackTrace();
-        }
-        
-        /*if (mFtpFileDownloaded){
-	        showNotification("读取Ftp文件完成。开始解析文件...");
-	        Map sensor = new HashMap();
-	        try {
-	        	sensor = GetMapFromFile("report.txt");
-	        	if (sensor == null || sensor.isEmpty())
-	        		mFileParsed = false;
-	        	else
-	        		mFileParsed = true;
-			} catch (IOException e) {
-				e.printStackTrace();
-				mFileParsed = false;
-			}
-	        
-	        if (mFileParsed){
-	        	// get json from map
-	            params.put("ID", project_id);
 
-	            Calendar rightNow = Calendar.getInstance(TimeZone.getDefault(),
-	           		 Locale.CHINA); 
-	            SimpleDateFormat dateformatter = new SimpleDateFormat("yyyyMMddHHmm"); 
-	            String originalText = project_id + password + dateformatter.format(rightNow.getTime());
-	           	sendLog("original text : \n" + originalText);
-	           	
-	           	String md5Password = Md5Digest.MD5String(originalText);
-	           	sendLog("md5 : \n" + md5Password);
-	            
-	            params.put("Password", md5Password);
-	            params.put("ReportTime", sensor.get("ReportTime"));
-	            sensor.remove("ReportTime");
-	            params.put("Report", sensor);
-	            params.put("Total", mTotal);
-	            
-	            String json = new Gson().toJson(params, Map.class);
-	            Log.d(tag,"json = " + json);
-	            sendLog(json);
-	            
-	            showNotification("文件解析完成。关闭wifi...");
-	            if (Utils.disableWifi(this))
-	            	showNotification("切换为3G网络成功...");
-	            else {
-	            	showNotification("切换为3G网络失败!");
-	            	return;
-	            }
-	            
-	            mCount = 1;
-	            postToServer(json, mPostUrl);
-	            
-//		        sendLog("空闲时间，保持wifi关闭3G");
-//				Utils.enableWifi(this, null,null);
-	            sendLog("空闲时间，启动飞行模式");
-				Utils.enableFlyMode(getApplicationContext());
-				
-	        } else {
-	        	showNotification("文件解析失败！");
-	        }
-        } else {
-        	showNotification("从Ftp获取文件失败，请检查网络与Ftp设置!");
-        }*/
-        
+	    	        			prefs.edit().putBoolean("is_modbus_running", false).commit();
+	    	        			// no need to reset service
+	    	        			// otherwise start upload directly
+	    	        			Intent intent = new Intent();
+	    	        			intent.putExtra("project_id",prefs.getString("project_id", null));
+	    	        	    	intent.putExtra("password",prefs.getString("password", null));
+	    	        	    	intent.putExtra("webservice_url",prefs.getString("webservice_url", null));
+	    	        	    	// original intent is refered in handleBroadcastIntent
+	    	        	        Intent uploadIntent = new Intent(this,UploadService.class);
+	    	        	        uploadIntent.putExtra("original_intent", intent); 
+	    	        			startService(uploadIntent);
+	    	        		} else 
+	    	        			prefs.edit().putBoolean("exception_happened", false).commit();
+	    	        	}
+	    			} catch (IOException e) {
+	    				e.printStackTrace();
+	    				mFileParsed = false;
+	    			}
+	    	        
+	        	}
+	        } 
+    	}
+    	
+    	prefs.edit().putBoolean("is_modbus_running", false).commit();
+    	
+    	if (useFtp) {
+        	// enable fly-mode
+//        	sendLog("空闲时间，启动飞行模式");
+//        	Utils.enableFlyMode(getApplicationContext());
+    		sendLog("空闲时间，关闭wifi");
+    		Utils.disableWifi(getApplicationContext());
+        }
+                
         // Done with our work...  stop the service!
         this.stopSelf();
 		
@@ -294,7 +260,8 @@ extends ALongRunningNonStickyBroadcastService
 //        mNM.cancel(R.string.alarm_service_notification_id);
 
         // Tell the user we stopped.
-        Toast.makeText(this, R.string.ftp_service_finished, Toast.LENGTH_SHORT).show();
+		if (useFtp)
+			Toast.makeText(this, R.string.ftp_service_finished, Toast.LENGTH_SHORT).show();
         
 //        stopMonitoringConnection();
     }
@@ -338,13 +305,6 @@ extends ALongRunningNonStickyBroadcastService
         FTPClient client = new FTPClient();
         BufferedOutputStream fos = null;
         try {
-        	// clear first
-        	File targetFile = new File(pathSpec.toString()+"/"+destname);
-        	if (targetFile.exists()){
-        		if (targetFile.delete())
-        			sendLog("清除旧文件已完成");
-        	}
-        	
         	// start download
             client.connect(InetAddress.getByName(ftphostname));
             client.login(ftpusername, ftppassword);
@@ -377,6 +337,13 @@ extends ALongRunningNonStickyBroadcastService
     }//getfileFTP
     
 	public Map GetMapFromFile(String filename) throws IOException{
+		
+		File targetFile = new File(getFilesDir() + "/" + filename);
+    	if (!targetFile.exists()){
+    		sendLog(filename  + " 文件不存在!");
+    		return null;
+    	}
+		
 	    Map<String, String> params = new HashMap<String, String>();
 	    Log.d(tag,"filepath = " + getFilesDir() + "/" + filename);
 	    FileInputStream is = new FileInputStream(getFilesDir() + "/" + filename);
